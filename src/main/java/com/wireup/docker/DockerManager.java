@@ -133,18 +133,15 @@ public class DockerManager {
         String configContent = config.getRawConfig();
         String configFileName;
         String containerConfigPath;
-        String containerConfigDir;
         String vpnTypeEnv;
 
         if (config.getType() == com.wireup.vpn.VpnConfig.VpnType.OPENVPN) {
             configFileName = "client.conf";
             containerConfigPath = "/etc/openvpn/client.conf";
-            containerConfigDir = "/etc/openvpn";
             vpnTypeEnv = "openvpn";
         } else {
             configFileName = "wg0.conf";
             containerConfigPath = "/etc/wireguard/wg0.conf";
-            containerConfigDir = "/etc/wireguard";
             vpnTypeEnv = "wireguard";
         }
 
@@ -164,6 +161,34 @@ public class DockerManager {
 
         logger.debug(vpnTypeEnv + " config written to temp directory (path redacted for security)");
 
+        // Handle OpenVPN authentication if credentials are provided
+        Bind authBind = null;
+        if (config.getType() == com.wireup.vpn.VpnConfig.VpnType.OPENVPN) {
+            com.wireup.vpn.OpenVpnConfig ovpnConfig = (com.wireup.vpn.OpenVpnConfig) config;
+            if (ovpnConfig.hasCredentials()) {
+                // Create auth file
+                File authFile = new File(tempConfigDir.toFile(), "auth.txt");
+                try (FileWriter authWriter = new FileWriter(authFile)) {
+                    authWriter.write(ovpnConfig.getUsername() + "\n");
+                    authWriter.write(ovpnConfig.getPassword() + "\n");
+                }
+
+                // Set restrictive permissions on auth file
+                try {
+                    SecurityUtils.setRestrictivePermissions(authFile.toPath());
+                    logger.securityInfo("OpenVPN auth file created with restrictive permissions");
+                } catch (Exception e) {
+                    logger.warn("Could not set restrictive permissions on auth file: " + e.getMessage());
+                }
+
+                // Create volume binding for auth file
+                Volume authVolume = new Volume("/etc/openvpn/auth.txt");
+                authBind = new Bind(authFile.getAbsolutePath(), authVolume);
+
+                logger.info("OpenVPN authentication file mounted");
+            }
+        }
+
         // Create volume binding for config
         Volume configVolume = new Volume(containerConfigPath);
         Bind configBind = new Bind(configFile.getAbsolutePath(), configVolume);
@@ -178,13 +203,11 @@ public class DockerManager {
         // Create host config with all settings
         HostConfig hostConfig = HostConfig.newHostConfig()
                 .withPrivileged(true)
-                .withPortBindings(portBindings)
                 .withCapAdd(Capability.NET_ADMIN, Capability.SYS_MODULE)
-                .withNetworkMode("bridge")
-                .withBinds(new Bind(configFile.getParentFile().getAbsolutePath(), new Volume(containerConfigDir)))
-                .withMemory(512L * 1024 * 1024)
-                .withMemorySwap(512L * 1024 * 1024)
-                .withCpuQuota(50000L)
+                .withBinds(authBind != null ? new Bind[] { configBind, authBind } : new Bind[] { configBind })
+                .withPortBindings(portBindings)
+                .withMemory(512L * 1024 * 1024) // 512MB RAM limit
+                .withCpuQuota(50000L) // 0.5 CPU limit
                 .withPidsLimit(100L)
                 .withPidsLimit(100L)
                 // .withDns("8.8.8.8") // COMMENTED OUT: Caused resolution issues with

@@ -28,6 +28,13 @@ public class ConfigPanel {
     private JRadioButton openVpnButton;
     private ButtonGroup protocolGroup;
 
+    // OpenVPN authentication fields
+    private JPanel authPanel;
+    private JTextField usernameField;
+    private JPasswordField passwordField;
+    private JTextField totpField;
+    private JLabel authStatusLabel;
+
     public ConfigPanel(ConnectionManager connectionManager, Logger logger) {
         this.logger = logger;
 
@@ -57,8 +64,14 @@ public class ConfigPanel {
         protocolPanel.add(wireGuardButton);
         protocolPanel.add(openVpnButton);
 
-        // Add listener to re-validate on switch
-        java.awt.event.ActionListener protocolListener = e -> validateConfig();
+        // Add listener to re-validate on switch and toggle auth panel
+        java.awt.event.ActionListener protocolListener = e -> {
+            validateConfig();
+            // Show auth panel only for OpenVPN
+            if (authPanel != null) {
+                authPanel.setVisible(openVpnButton.isSelected());
+            }
+        };
         wireGuardButton.addActionListener(protocolListener);
         openVpnButton.addActionListener(protocolListener);
 
@@ -82,10 +95,15 @@ public class ConfigPanel {
         JScrollPane scrollPane = new JScrollPane(configTextArea);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 
+        // Authentication Panel (for OpenVPN)
+        authPanel = createAuthPanel();
+        authPanel.setVisible(false); // Hidden by default
+
         // Main content wrapper
         JPanel centerPanel = new JPanel(new BorderLayout(5, 5));
         centerPanel.add(protocolPanel, BorderLayout.NORTH);
         centerPanel.add(scrollPane, BorderLayout.CENTER);
+        centerPanel.add(authPanel, BorderLayout.SOUTH);
 
         panel.add(centerPanel, BorderLayout.CENTER);
 
@@ -195,6 +213,110 @@ public class ConfigPanel {
     public com.wireup.vpn.VpnConfig.VpnType getVpnType() {
         return wireGuardButton.isSelected() ? com.wireup.vpn.VpnConfig.VpnType.WIREGUARD
                 : com.wireup.vpn.VpnConfig.VpnType.OPENVPN;
+    }
+
+    private JPanel createAuthPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createEtchedBorder(),
+                "OpenVPN Authentication (Optional)",
+                TitledBorder.LEFT,
+                TitledBorder.TOP,
+                new Font("Arial", Font.BOLD, 11)));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        Font labelFont = new Font("Arial", Font.PLAIN, 11);
+
+        // Username
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 0;
+        JLabel userLabel = new JLabel("Username:");
+        userLabel.setFont(labelFont);
+        panel.add(userLabel, gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 1.0;
+        usernameField = new JTextField(20);
+        usernameField.setFont(labelFont);
+        panel.add(usernameField, gbc);
+
+        // Password
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.weightx = 0;
+        JLabel passLabel = new JLabel("Password:");
+        passLabel.setFont(labelFont);
+        panel.add(passLabel, gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 1.0;
+        passwordField = new JPasswordField(20);
+        passwordField.setFont(labelFont);
+        panel.add(passwordField, gbc);
+
+        // TOTP/2FA Token
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.weightx = 0;
+        JLabel totpLabel = new JLabel("2FA/TOTP Token:");
+        totpLabel.setFont(labelFont);
+        totpLabel.setToolTipText("Leave empty if not using 2FA");
+        panel.add(totpLabel, gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 1.0;
+        totpField = new JTextField(10);
+        totpField.setFont(labelFont);
+        totpField.setToolTipText("Enter 6-digit code if required");
+        panel.add(totpField, gbc);
+
+        // Status label
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.gridwidth = 2;
+        authStatusLabel = new JLabel("Leave blank if your VPN doesn't require authentication");
+        authStatusLabel.setFont(new Font("Arial", Font.ITALIC, 10));
+        authStatusLabel.setForeground(Color.GRAY);
+        panel.add(authStatusLabel, gbc);
+
+        return panel;
+    }
+
+    public String getUsername() {
+        return usernameField != null ? usernameField.getText().trim() : "";
+    }
+
+    public String getPassword() {
+        if (passwordField == null)
+            return "";
+
+        char[] pass = passwordField.getPassword();
+        String password = new String(pass);
+
+        // Append TOTP token if provided (some VPNs require password+token)
+        String totp = getTotpToken();
+        if (!totp.isEmpty()) {
+            password = password + totp;
+        }
+
+        // Clear the char array for security
+        java.util.Arrays.fill(pass, '0');
+
+        return password;
+    }
+
+    public String getTotpToken() {
+        return totpField != null ? totpField.getText().trim() : "";
+    }
+
+    public boolean hasCredentials() {
+        return getUsername() != null && !getUsername().isEmpty() &&
+                getPassword() != null && !getPassword().isEmpty();
     }
 
     public JPanel getPanel() {

@@ -45,9 +45,14 @@ RUN echo '#!/bin/sh' > /start.sh && \
     echo '    # Create TUN device' >> /start.sh && \
     echo '    mkdir -p /dev/net' >> /start.sh && \
     echo '    mknod /dev/net/tun c 10 200 || true' >> /start.sh && \
-    echo '    # Start OpenVPN in background to capture logs to stdout' >> /start.sh && \
+    echo '    # Check if auth file exists and modify config' >> /start.sh && \
+    echo '    if [ -f /etc/openvpn/auth.txt ]; then' >> /start.sh && \
+    echo '        echo "Using authentication file"' >> /start.sh && \
+    echo '        sed -i "s/auth-user-pass$/auth-user-pass \/etc\/openvpn\/auth.txt/" /etc/openvpn/client.conf 2>/dev/null || true' >> /start.sh && \
+    echo '    fi' >> /start.sh && \
+    echo '    # Start OpenVPN in foreground, exit if it fails' >> /start.sh && \
     echo '    # Use mssfix to prevent fragmentation issues' >> /start.sh && \
-    echo '    openvpn --config /etc/openvpn/client.conf --mssfix 1000 &' >> /start.sh && \
+    echo '    openvpn --config /etc/openvpn/client.conf --mssfix 1000 || { echo "OpenVPN failed to start"; exit 1; }' >> /start.sh && \
     echo '    VPN_IFACE="tun0"' >> /start.sh && \
     echo 'else' >> /start.sh && \
     echo '    echo "Starting WireGuard..."' >> /start.sh && \

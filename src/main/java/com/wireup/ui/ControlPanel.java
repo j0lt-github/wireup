@@ -108,6 +108,19 @@ public class ControlPanel {
             config = new WireGuardConfig(configText);
         } else {
             config = new com.wireup.vpn.OpenVpnConfig(configText);
+
+            // Set credentials if provided for OpenVPN
+            com.wireup.vpn.OpenVpnConfig ovpnConfig = (com.wireup.vpn.OpenVpnConfig) config;
+            String username = configPanel.getUsername();
+            String password = configPanel.getPassword();
+
+            if (username != null && !username.isEmpty() &&
+                    password != null && !password.isEmpty()) {
+                ovpnConfig.setCredentials(username, password);
+                logger.info("OpenVPN credentials provided for authentication");
+            } else if (ovpnConfig.requiresAuth() && !ovpnConfig.hasCredentials()) {
+                logger.warn("OpenVPN config requires authentication but no credentials provided");
+            }
         }
 
         if (!config.isValid()) {
