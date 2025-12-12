@@ -32,3 +32,4 @@ wireup-config-*.conf
 wireup-config-*.conf.lock
 client.conf
 wg0.conf
+RELEASE_NOTES.md

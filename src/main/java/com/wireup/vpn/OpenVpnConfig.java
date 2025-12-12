@@ -12,10 +12,37 @@ public class OpenVpnConfig implements VpnConfig {
     private boolean isValid;
     private String errorMessage;
     private String remoteEndpoint;
+    private boolean requiresAuth;
+
+    // Authentication credentials (optional)
+    private String username;
+    private String password;
 
     public OpenVpnConfig(String rawConfig) {
         this.rawConfig = rawConfig;
         parseAndValidate();
+    }
+
+    public void setCredentials(String username, String password) {
+        this.username = username;
+        this.password = password;
+    }
+
+    public boolean requiresAuth() {
+        return requiresAuth;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public boolean hasCredentials() {
+        return username != null && !username.isEmpty() &&
+                password != null && !password.isEmpty();
     }
 
     private void parseAndValidate() {
@@ -59,22 +86,19 @@ public class OpenVpnConfig implements VpnConfig {
         // Check for credentials
         // We support:
         // 1. Inline certificates (<ca>, <cert>, <key>)
-        // 2. Inline static key (<secret>)
-        // 3. auth-user-pass (requires separate credentials file, which we don't support
-        // well yet without UI)
+        // 2. auth-user-pass (requires username/password from UI)
 
-        boolean hasInlineCert = rawConfig.contains("<cert>");
-        boolean hasAuthUserPass = rawConfig.contains("auth-user-pass");
+        boolean hasEmbeddedCert = rawConfig.contains("<ca>") || rawConfig.contains("<cert>") ||
+                rawConfig.contains("<key>");
+        boolean hasAuthDirective = rawConfig.contains("auth-user-pass");
 
-        if (hasAuthUserPass && !hasInlineCert) {
-            // For now, warn if auth-user-pass is used without inline certs, as we might
-            // need credentials
-            // But many configs use both. We'll mark valid but user might fail auth if
-            // prompt needed.
-            // Ideally we'd validte if auth-user-pass points to a file, which wouldn't exist
-            // in container.
-            // So we should check if it's just "auth-user-pass" (interactive) or
-            // "auth-user-pass file"
+        // Set requiresAuth flag
+        this.requiresAuth = hasAuthDirective;
+
+        if (!hasEmbeddedCert && !hasAuthDirective) {
+            isValid = false;
+            errorMessage = "Missing authentication: need either embedded certificates or 'auth-user-pass' directive";
+            return;
         }
 
         isValid = true;
