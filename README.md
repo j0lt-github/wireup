@@ -8,7 +8,7 @@
 [![Burp Suite](https://img.shields.io/badge/Burp%20Suite-Professional%20%7C%20Community-orange.svg)](https://portswigger.net/burp)
 [![Docker](https://img.shields.io/badge/Docker-Required-2496ED.svg)](https://www.docker.com/)
 
-*Created by [j0lt](https://github.com/j0lt)*
+*Created by [j0lt](https://github.com/j0lt-github)*
 
 </div>
 
