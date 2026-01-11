@@ -20,7 +20,8 @@ WireUp is a Burp Suite extension that enables seamless VPN integration for penet
 
 ### Key Features
 
-- 🔐 **Multiple VPN Support**: OpenVPN and WireGuard protocols
+- 🔐 **Multiple VPN Support**: OpenVPN (TCP/UDP) and WireGuard protocols
+- 🔑 **Authentication**: Full support for OpenVPN Username/Password and TOTP/2FA
 - 🚀 **One-Click Connection**: Simple UI for connecting/disconnecting
 - 🐳 **Docker Isolation**: VPN runs in containers, no host configuration needed
 - 🔄 **Auto-Cleanup**: Automatically manages Docker resources
@@ -39,7 +40,7 @@ WireUp is a Burp Suite extension that enables seamless VPN integration for penet
 
 ### Option 1: From Release (Recommended)
 
-1. Download the latest `wireup-1.0-SNAPSHOT.jar` from [Releases](../../releases)
+1. Download the latest `wireup-v1.2.1.jar` from [Releases](https://github.com/j0lt-github/wireup/releases)
 2. Open Burp Suite
 3. Navigate to **Extensions** → **Installed**
 4. Click **Add**
@@ -73,6 +74,8 @@ Then follow steps 2-6 from Option 1.
    - Open Burp Suite and navigate to the **WireUp** tab
    - Select your VPN type (OpenVPN or WireGuard)
    - Paste your configuration into the text area
+   - **For OpenVPN w/ Auth**: Username/Password fields will appear automatically!
+   - Enter credentials (and TOTP token if using 2FA)
 
 3. **Connect**
    - Click **Connect to VPN**
@@ -95,9 +98,18 @@ Then follow steps 2-6 from Option 1.
 
 #### Custom DNS Servers
 
-For OpenVPN, DNS is automatically configured via the VPN server's push options.
-
 For WireGuard, DNS entries in the configuration are automatically handled (stripped and managed internally to avoid Docker conflicts).
+
+#### OpenVPN Authentication 🔐
+
+WireUp fully supports `auth-user-pass` directives in OpenVPN configurations:
+
+1. **Auto-Detection**: Paste a config containing `auth-user-pass`
+2. **UI Update**: Credential fields appear instantly
+3. **TOTP/2FA**: 
+   - Enter your 2FA code in the **TOTP Token** field
+   - OR append it to your password (e.g., `mypassword123456`)
+4. **Security**: Credentials are stored in memory only and never persisted to disk.
 
 #### Connection Management
 
