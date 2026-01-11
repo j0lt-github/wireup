@@ -55,7 +55,10 @@ public class ConfigPanel {
         protocolPanel.add(new JLabel("Protocol:"));
 
         wireGuardButton = new JRadioButton("WireGuard", true);
+        wireGuardButton.setToolTipText("Use WireGuard protocol (faster, newer)");
+
         openVpnButton = new JRadioButton("OpenVPN");
+        openVpnButton.setToolTipText("Use OpenVPN protocol (standard, supports auth)");
 
         protocolGroup = new ButtonGroup();
         protocolGroup.add(wireGuardButton);

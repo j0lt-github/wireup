@@ -20,7 +20,7 @@ public class IpVerifier {
      */
     public static String getCurrentIp() {
         try {
-            URL url = new URL(IP_CHECK_URL);
+            URL url = java.net.URI.create(IP_CHECK_URL).toURL();
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setConnectTimeout(TIMEOUT_MS);
@@ -42,7 +42,7 @@ public class IpVerifier {
         try {
             Proxy proxy = new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(proxyHost, proxyPort));
 
-            URL url = new URL(IP_CHECK_URL);
+            URL url = java.net.URI.create(IP_CHECK_URL).toURL();
             HttpURLConnection conn = (HttpURLConnection) url.openConnection(proxy);
             conn.setRequestMethod("GET");
             conn.setConnectTimeout(TIMEOUT_MS);

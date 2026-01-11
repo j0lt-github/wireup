@@ -43,20 +43,24 @@ public class ControlPanel {
         connectButton = new JButton("Connect to VPN");
         connectButton.setFont(new Font("Arial", Font.BOLD, 12));
         connectButton.setForeground(new Color(0, 128, 0));
+        connectButton.setToolTipText("Start the Docker container and establish VPN connection");
         connectButton.addActionListener(e -> onConnect());
 
         // Disconnect button
         disconnectButton = new JButton("Disconnect");
         disconnectButton.setEnabled(false);
+        disconnectButton.setToolTipText("Stop the VPN connection and cleanup container");
         disconnectButton.addActionListener(e -> onDisconnect());
 
         // Reconnect button
         reconnectButton = new JButton("Reconnect");
         reconnectButton.setEnabled(false);
+        reconnectButton.setToolTipText("Restart the connection (useful for connection resets)");
         reconnectButton.addActionListener(e -> onReconnect());
 
         // View logs button
         viewLogsButton = new JButton("View Logs");
+        viewLogsButton.setToolTipText("View internal Docker container logs for debugging");
         viewLogsButton.addActionListener(e -> onViewLogs());
 
         panel.add(connectButton);

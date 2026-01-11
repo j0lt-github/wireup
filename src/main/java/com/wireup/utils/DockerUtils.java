@@ -1,8 +1,5 @@
 package com.wireup.utils;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-
 /**
  * Docker detection and auto-start utilities
  */

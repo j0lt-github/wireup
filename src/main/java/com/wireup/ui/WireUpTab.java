@@ -90,18 +90,24 @@ public class WireUpTab {
         JPanel header = new JPanel(new BorderLayout());
         header.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
 
-        JLabel titleLabel = new JLabel("WireUp - WireGuard VPN for Burp Suite");
+        JLabel titleLabel = new JLabel("WireUp - VPN Proxy for Burp Suite");
         titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
 
-        JLabel subtitleLabel = new JLabel("Route Burp traffic through WireGuard VPN using Docker");
+        JLabel subtitleLabel = new JLabel("Route traffic through OpenVPN or WireGuard tunnels via Docker");
         subtitleLabel.setFont(new Font("Arial", Font.PLAIN, 12));
         subtitleLabel.setForeground(Color.GRAY);
+
+        JLabel versionLabel = new JLabel("v1.2.0");
+        versionLabel.setFont(new Font("Arial", Font.PLAIN, 10));
+        versionLabel.setForeground(Color.LIGHT_GRAY);
+        versionLabel.setHorizontalAlignment(SwingConstants.RIGHT);
 
         JPanel titlePanel = new JPanel(new GridLayout(2, 1));
         titlePanel.add(titleLabel);
         titlePanel.add(subtitleLabel);
 
         header.add(titlePanel, BorderLayout.WEST);
+        header.add(versionLabel, BorderLayout.EAST);
 
         return header;
     }
