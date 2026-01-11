@@ -292,11 +292,17 @@ public class DockerManager {
 
             for (Container container : containers) {
                 try {
-                    dockerClient.stopContainerCmd(container.getId()).withTimeout(5).exec();
-                    dockerClient.removeContainerCmd(container.getId()).exec();
-                    logger.info("Cleaned up orphaned container: " + container.getId());
+                    logger.info("Found existing container: " + container.getId() + " ("
+                            + Arrays.toString(container.getNames()) + ")");
+
+                    // Force remove the container (kills it if running)
+                    dockerClient.removeContainerCmd(container.getId())
+                            .withForce(true)
+                            .exec();
+
+                    logger.info("Removed existing container: " + container.getId());
                 } catch (Exception e) {
-                    logger.debug("Could not clean up container: " + e.getMessage());
+                    logger.warn("Could not remove container " + container.getId() + ": " + e.getMessage());
                 }
             }
         } catch (Exception e) {
