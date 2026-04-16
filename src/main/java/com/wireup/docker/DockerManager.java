@@ -23,8 +23,9 @@ import com.wireup.utils.VpnLogger;
 import com.wireup.utils.SecurityUtils;
 import com.wireup.vpn.VpnConfig;
 
+import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -91,6 +92,21 @@ public class DockerManager {
                 .awaitImageId();
 
         logger.info("Docker image built successfully: " + imageId);
+
+        // Clean up the temporary Dockerfile directory
+        try {
+            Files.walk(dockerfileDir.toPath())
+                    .sorted((a, b) -> -a.compareTo(b))
+                    .forEach(path -> {
+                        try {
+                            Files.delete(path);
+                        } catch (Exception e) {
+                            // Ignore
+                        }
+                    });
+        } catch (Exception e) {
+            logger.debug("Could not clean up Dockerfile temp dir: " + e.getMessage());
+        }
     }
 
     /**
@@ -147,7 +163,7 @@ public class DockerManager {
 
         // Write config to temp file with restrictive permissions
         File configFile = new File(tempConfigDir.toFile(), configFileName);
-        try (FileWriter writer = new FileWriter(configFile)) {
+        try (BufferedWriter writer = Files.newBufferedWriter(configFile.toPath(), StandardCharsets.UTF_8)) {
             writer.write(configContent);
         }
 
@@ -168,7 +184,7 @@ public class DockerManager {
             if (ovpnConfig.hasCredentials()) {
                 // Create auth file
                 File authFile = new File(tempConfigDir.toFile(), "auth.txt");
-                try (FileWriter authWriter = new FileWriter(authFile)) {
+                try (BufferedWriter authWriter = Files.newBufferedWriter(authFile.toPath(), StandardCharsets.UTF_8)) {
                     authWriter.write(ovpnConfig.getUsername() + "\n");
                     authWriter.write(ovpnConfig.getPassword() + "\n");
                 }
@@ -208,7 +224,6 @@ public class DockerManager {
                 .withPortBindings(portBindings)
                 .withMemory(512L * 1024 * 1024) // 512MB RAM limit
                 .withCpuQuota(50000L) // 0.5 CPU limit
-                .withPidsLimit(100L)
                 .withPidsLimit(100L)
                 // .withDns("8.8.8.8") // COMMENTED OUT: Caused resolution issues with
                 // host.docker.internal
@@ -427,18 +442,10 @@ public class DockerManager {
 
         stopAndRemoveContainer();
 
-        // Clean up temp config directory
+        // Securely delete temp config directory (overwrites sensitive key material)
         if (tempConfigDir != null) {
             try {
-                Files.walk(tempConfigDir)
-                        .sorted((a, b) -> -a.compareTo(b))
-                        .forEach(path -> {
-                            try {
-                                Files.delete(path);
-                            } catch (Exception e) {
-                                // Ignore
-                            }
-                        });
+                SecurityUtils.secureDeleteDirectory(tempConfigDir);
             } catch (Exception e) {
                 logger.debug("Error cleaning temp directory: " + e.getMessage());
             }

@@ -51,7 +51,7 @@ WireUp is a Burp Suite extension that enables seamless VPN integration for penet
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/wireup.git
+git clone https://github.com/j0lt-github/wireup.git
 cd wireup
 
 # Build the extension
