@@ -62,6 +62,7 @@ public class ConnectionManager {
                 }
 
                 this.currentConfig = config;
+                this.vpnIp = null;
 
                 logger.info("Config validated successfully: " + config.getType());
                 logger.debug(config.getSummary());
@@ -101,6 +102,7 @@ public class ConnectionManager {
                             "Cannot connect through SOCKS proxy after " + maxRetries + " attempts: " + vpnIp);
                 }
 
+                this.vpnIp = vpnIp;
                 logger.info("VPN IP verified: " + vpnIp);
 
                 // Configure Burp's upstream proxy
@@ -115,14 +117,13 @@ public class ConnectionManager {
                 setState(ConnectionState.ERROR);
 
                 // CRITICAL: Always clean up on error to prevent orphaned containers
-                // try {
-                // logger.info("Cleaning up failed connection...");
-                // dockerManager.stopAndRemoveContainer();
-                // logger.debug("Container cleanup completed");
-                // } catch (Exception cleanupEx) {
-                // logger.debug("Cleanup error (may be already removed): " +
-                // cleanupEx.getMessage());
-                // }
+                try {
+                    logger.info("Cleaning up failed connection...");
+                    dockerManager.stopAndRemoveContainer();
+                    logger.debug("Container cleanup completed");
+                } catch (Exception cleanupEx) {
+                    logger.debug("Cleanup error (may be already removed): " + cleanupEx.getMessage());
+                }
             }
         }, "WireUp-Connect").start();
     }
