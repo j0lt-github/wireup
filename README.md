@@ -40,7 +40,7 @@ WireUp is a Burp Suite extension that enables seamless VPN integration for penet
 
 ### Option 1: From Release (Recommended)
 
-1. Download the latest `wireup-v1.2.1.jar` from [Releases](https://github.com/j0lt-github/wireup/releases)
+1. Download the latest `wireup-v1.2.2.jar` from [Releases](https://github.com/j0lt-github/wireup/releases)
 2. Open Burp Suite
 3. Navigate to **Extensions** → **Installed**
 4. Click **Add**
@@ -86,7 +86,7 @@ Then follow steps 2-6 from Option 1.
    - Go to **Proxy** → **Settings** → **Network**
    - Add a new SOCKS proxy:
      - **Host**: `127.0.0.1`
-     - **Port**: `1080`
+     - **Port**: *The dynamically allocated port shown in the Burp UI prompt*
    - Enable the proxy for upstream connections
 
 5. **Test Connection**
@@ -121,7 +121,7 @@ WireUp fully supports `auth-user-pass` directives in OpenVPN configurations:
 
 ```
 ┌─────────────┐     SOCKS5      ┌──────────────────┐     VPN      ┌─────────────┐
-│ Burp Suite  │ ────(1080)────→ │ Docker Container │ ──Tunnel───→ │ VPN Server  │
+│ Burp Suite  │ ──(Dynamic)───→ │ Docker Container │ ──Tunnel───→ │ VPN Server  │
 │             │                  │  - OpenVPN/WG    │              │             │
 │             │                  │  - Dante SOCKS5  │              │             │
 └─────────────┘                  └──────────────────┘              └─────────────┘
@@ -129,7 +129,7 @@ WireUp fully supports `auth-user-pass` directives in OpenVPN configurations:
 
 WireUp creates an Alpine Linux container with:
 - VPN client (OpenVPN or WireGuard)
-- Dante SOCKS5 server on port 1080
+- Dante SOCKS5 server on a dynamically allocated ephemeral port
 - Network optimizations (MTU, checksum handling, routing)
 - Security restrictions (resource limits, non-root execution where possible)
 
@@ -163,11 +163,11 @@ WireUp creates an Alpine Linux container with:
 
 ### SOCKS Proxy Not Working
 
-**Issue**: Burp can't connect to `127.0.0.1:1080`
+**Issue**: Burp can't connect to `127.0.0.1:<port>`
 
 **Solutions**:
 - Verify VPN is connected (check status panel)
-- Ensure no other service is using port 1080
+- Ensure no other service is using the allocated port
 - Check firewall isn't blocking localhost connections
 - Try reconnecting the VPN
 

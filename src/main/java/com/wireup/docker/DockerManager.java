@@ -28,6 +28,7 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -50,7 +51,9 @@ public class DockerManager {
     public DockerManager(VpnLogger logger) throws Exception {
         this.logger = logger;
         this.dockerClient = createDockerClient();
-        this.tempConfigDir = Files.createTempDirectory("wireup-");
+        Path wireupHome = Paths.get(System.getProperty("user.home"), ".wireup", "run");
+        Files.createDirectories(wireupHome);
+        this.tempConfigDir = Files.createTempDirectory(wireupHome, "vpn-");
 
         logger.debug("Docker manager initialized with temp dir: " + tempConfigDir);
 
@@ -86,26 +89,28 @@ public class DockerManager {
         BuildImageCmd buildCmd = dockerClient.buildImageCmd()
                 .withDockerfile(new File(dockerfileDir, "Dockerfile"))
                 .withTags(new HashSet<>(Arrays.asList(IMAGE_NAME + ":" + IMAGE_TAG)))
-                .withPull(false);
+                .withPull(true);
 
-        String imageId = buildCmd.exec(new BuildImageResultCallback())
-                .awaitImageId();
-
-        logger.info("Docker image built successfully: " + imageId);
-
-        // Clean up the temporary Dockerfile directory
         try {
-            Files.walk(dockerfileDir.toPath())
-                    .sorted((a, b) -> -a.compareTo(b))
-                    .forEach(path -> {
-                        try {
-                            Files.delete(path);
-                        } catch (Exception e) {
-                            // Ignore
-                        }
-                    });
-        } catch (Exception e) {
-            logger.debug("Could not clean up Dockerfile temp dir: " + e.getMessage());
+            String imageId = buildCmd.exec(new BuildImageResultCallback())
+                    .awaitImageId();
+
+            logger.info("Docker image built successfully: " + imageId);
+        } finally {
+            // Clean up the temporary Dockerfile directory
+            try {
+                Files.walk(dockerfileDir.toPath())
+                        .sorted((a, b) -> -a.compareTo(b))
+                        .forEach(path -> {
+                            try {
+                                Files.delete(path);
+                            } catch (Exception e) {
+                                // Ignore
+                            }
+                        });
+            } catch (Exception e) {
+                logger.debug("Could not clean up Dockerfile temp dir: " + e.getMessage());
+            }
         }
     }
 
@@ -124,23 +129,12 @@ public class DockerManager {
     /**
      * Create and start a container with the given VPN config
      */
-    public String createAndStartContainer(com.wireup.vpn.VpnConfig config) throws Exception {
+    public String createAndStartContainer(com.wireup.vpn.VpnConfig config, int hostPort) throws Exception {
         // Stop any existing container (including orphaned ones from previous extension
         // loads)
         stopAndRemoveContainer();
 
-        // Force remove old image to ensure we rebuild with latest Dockerfile
-        try {
-            dockerClient.removeImageCmd(IMAGE_NAME + ":" + IMAGE_TAG)
-                    .withForce(true)
-                    .exec();
-            logger.debug("Removed old image to force rebuild");
-        } catch (Exception e) {
-            // Image might not exist, that's fine
-            logger.debug("No old image to remove");
-        }
-
-        // Ensure image exists (will build fresh image)
+        // Ensure image exists (will build fresh image if not found)
         if (!imageExists()) {
             logger.info("Image not found, building...");
             buildImage();
@@ -212,9 +206,9 @@ public class DockerManager {
         // Create bind for SOCKS5 proxy port
         ExposedPort tcp1080 = ExposedPort.tcp(1080);
         Ports portBindings = new Ports();
-        portBindings.bind(tcp1080, Ports.Binding.bindPort(1080));
+        portBindings.bind(tcp1080, Ports.Binding.bindPort(hostPort));
 
-        logger.debug("Port binding: 1080:1080/tcp");
+        logger.debug("Port binding: 1080:" + hostPort + "/tcp");
 
         // Create host config with all settings
         HostConfig hostConfig = HostConfig.newHostConfig()
@@ -244,6 +238,19 @@ public class DockerManager {
             currentContainerId = container.getId();
             logger.info("Container created: " + currentContainerId);
 
+        } catch (com.github.dockerjava.api.exception.NotFoundException e) {
+            // Plan B: Image corrupted or completely missing from daemon
+            logger.warn("Image not found during container creation (Plan B). Forcing rebuild.");
+            buildImage();
+            CreateContainerResponse container = dockerClient.createContainerCmd(IMAGE_NAME + ":" + IMAGE_TAG)
+                    .withName(CONTAINER_NAME)
+                    .withHostConfig(hostConfig)
+                    .withExposedPorts(tcp1080)
+                    .withEnv("VPN_TYPE=" + vpnTypeEnv)
+                    .exec();
+
+            currentContainerId = container.getId();
+            logger.info("Container created after forced rebuild: " + currentContainerId);
         } catch (com.github.dockerjava.api.exception.ConflictException e) {
             // Container with this name already exists - force cleanup and retry
             logger.warn("Container name conflict detected - cleaning up old container");
@@ -265,13 +272,20 @@ public class DockerManager {
         logger.info("Starting container...");
         dockerClient.startContainerCmd(currentContainerId).exec();
 
-        // Wait a bit for container to initialize
-        Thread.sleep(3000);
+        // Smart polling for container initialization
+        boolean isRunning = false;
+        for (int i = 0; i < 20; i++) { // Max wait: 10 seconds
+            if (isContainerRunning()) {
+                isRunning = true;
+                break;
+            }
+            Thread.sleep(500);
+        }
 
         // Check if container is running
-        if (!isContainerRunning()) {
+        if (!isRunning) {
             String logs = getContainerLogs();
-            throw new Exception("Container failed to start. Logs:\n" + logs);
+            throw new Exception("Container failed to start after 10 seconds. Logs:\n" + logs);
         }
 
         logger.info("Container started successfully");

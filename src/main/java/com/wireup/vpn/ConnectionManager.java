@@ -9,6 +9,8 @@ import com.wireup.utils.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.net.ServerSocket;
+import java.io.IOException;
 
 /**
  * Manages VPN connection state and integrates Docker with Burp proxy settings
@@ -33,7 +35,19 @@ public class ConnectionManager {
     private List<Consumer<ConnectionState>> stateChangeListeners;
 
     private static final String PROXY_HOST = "127.0.0.1";
-    private static final int PROXY_PORT = 1080;
+    private int currentProxyPort = 1080;
+
+    /**
+     * Finds an available ephemeral port on the host system.
+     */
+    private int findAvailablePort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        } catch (IOException e) {
+            logger.warn("Could not find dynamic port, falling back to 1080");
+            return 1080; // Fallback
+        }
+    }
 
     public ConnectionManager(MontoyaApi api, DockerManager dockerManager, Logger logger) {
         this.dockerManager = dockerManager;
@@ -67,8 +81,12 @@ public class ConnectionManager {
                 logger.info("Config validated successfully: " + config.getType());
                 logger.debug(config.getSummary());
 
+                // Allocate a dynamic port for SOCKS proxy
+                this.currentProxyPort = findAvailablePort();
+                logger.info("Allocated dynamic SOCKS port: " + currentProxyPort);
+
                 // Create and start Docker container
-                String containerId = dockerManager.createAndStartContainer(config);
+                String containerId = dockerManager.createAndStartContainer(config, currentProxyPort);
                 logger.info("Container started: " + containerId);
 
                 // Wait for SOCKS proxy to be ready and retry connection
@@ -80,7 +98,7 @@ public class ConnectionManager {
                 int maxRetries = 3;
                 for (int i = 0; i < maxRetries; i++) {
                     logger.info("Verifying VPN connection (attempt " + (i + 1) + "/" + maxRetries + ")...");
-                    vpnIp = IpVerifier.getIpThroughProxy(PROXY_HOST, PROXY_PORT);
+                    vpnIp = IpVerifier.getIpThroughProxy(PROXY_HOST, currentProxyPort);
 
                     if (!vpnIp.startsWith("Error")) {
                         logger.info("VPN IP verified: " + vpnIp);
@@ -188,7 +206,7 @@ public class ConnectionManager {
                         "1. Go to Settings -> Network -> Connections\n" +
                         "2. Under 'Upstream Proxy Servers', click 'Add'\n" +
                         "3. Set Proxy host: " + PROXY_HOST + "\n" +
-                        "4. Set Proxy port: " + PROXY_PORT + "\n" +
+                        "4. Set Proxy port: " + currentProxyPort + "\n" +
                         "5. Select 'SOCKS proxy'\n" +
                         "6. Click 'OK'\n\n" +
                         "Without this, Burp will bypass the VPN!";
